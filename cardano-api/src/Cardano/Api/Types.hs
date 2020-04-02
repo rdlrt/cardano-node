@@ -25,9 +25,9 @@ import           Data.Vector (Vector)
 -- The 'Address' data type in 'cardano-sl' is a design train wreck.
 -- We need something that is compatible and discard as much of the insanity as possible.
 data Address
-  = AddressByron !Byron.Address'
+  = AddressByron !Byron.Address
   | AddressShelley
-  deriving (Generic {-, NFData -})  -- Byron.Address' needs NFData
+  deriving (Eq, Generic {-, NFData -}, Show)  -- Byron.Address' needs NFData
   deriving NoUnexpectedThunks via UseIsNormalForm Address
 
 data KeyPair
@@ -44,13 +44,13 @@ data KeyPair
 data Network
   = Mainnet
   | Testnet !Crypto.ProtocolMagicId
-  deriving (Generic, NFData)
+  deriving (Eq, Generic, NFData, Show)
   deriving anyclass NoUnexpectedThunks
 
 data PubKeyInfo
   = PubKeyInfoByron !Network !Crypto.VerificationKey
   | PubKeyInfoShelley
-  deriving (Generic, NFData)
+  deriving (Generic, NFData, Show)
   deriving anyclass NoUnexpectedThunks
 
 -- This will probably be dropped.

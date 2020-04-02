@@ -1,8 +1,14 @@
 module Cardano.Api.View
-  ( parseKeyPairView
+  ( parseAddressView
+  , parseKeyPairView
+  , parsePubKeyInfoView
   , readKeyPair
+  , readPubKeyInfo
+  , renderAddressView
   , renderKeyPairView
+  , renderPubKeyInfoView
   , writeKeyPair
+  , writePubKeyInfo
 
   -- Exported for testing.
   , rawToMultilineHex
@@ -24,6 +30,18 @@ import           Control.Monad.Trans.Except.Extra (handleIOExceptT, hoistEither,
 import qualified Data.Text as Text
 
 
+parseAddressView :: ByteString -> Either ApiError Address
+parseAddressView bs =
+    case BS.lines bs of
+      ("AddressByron" : rest) -> parseLines rest
+      ("AddressShelley" : rest) -> parseLines rest
+      [] -> Left $ ApiError "parseAddressView: Empty set of lines."
+      (m : _) -> Left $ ApiError (mconcat ["parseAddressView: Bad marker ", textShow m, "."])
+  where
+    parseLines :: [ByteString] -> Either ApiError Address
+    parseLines xs =
+      addressFromCBOR =<< unRawToMultilineHex (BS.concat xs)
+
 parseKeyPairView :: ByteString -> Either ApiError KeyPair
 parseKeyPairView bs =
     case BS.lines bs of
@@ -36,6 +54,28 @@ parseKeyPairView bs =
     parseLines xs =
       keyPairFromCBOR =<< unRawToMultilineHex (BS.concat xs)
 
+parsePubKeyInfoView :: ByteString -> Either ApiError PubKeyInfo
+parsePubKeyInfoView bs =
+    case BS.lines bs of
+      ("PubKeyInfoByron" : rest) -> parseLines rest
+      ("PubKeyInfoShelley" : rest) -> parseLines rest
+      [] -> Left $ ApiError "parsePubKeyInfoView: Empty set of lines."
+      (m : _) -> Left $ ApiError (mconcat ["parsePubKeyInfoView: Bad marker ", textShow m, "."])
+  where
+    parseLines :: [ByteString] -> Either ApiError PubKeyInfo
+    parseLines xs =
+      pubKeyInfoFromCBOR =<< unRawToMultilineHex (BS.concat xs)
+
+renderAddressView :: Address -> ByteString
+renderAddressView kp =
+  BS.unlines $
+    case kp of
+      AddressByron {} -> "AddressByron" : xs
+      AddressShelley {} -> "AddressShelley" : xs
+  where
+    xs :: [ByteString]
+    xs = rawToMultilineHex $ addressToCBOR kp
+
 renderKeyPairView :: KeyPair -> ByteString
 renderKeyPairView kp =
   BS.unlines $
@@ -46,6 +86,16 @@ renderKeyPairView kp =
     xs :: [ByteString]
     xs = rawToMultilineHex $ keyPairToCBOR kp
 
+renderPubKeyInfoView :: PubKeyInfo -> ByteString
+renderPubKeyInfoView kp =
+  BS.unlines $
+    case kp of
+      PubKeyInfoByron {} -> "PubKeyInfoByron" : xs
+      PubKeyInfoShelley {} -> "PubKeyInfoShelley" : xs
+  where
+    xs :: [ByteString]
+    xs = rawToMultilineHex $ pubKeyInfoToCBOR kp
+
 -- -------------------------------------------------------------------------------------------------
 
 readKeyPair :: FilePath -> IO (Either ApiError KeyPair)
@@ -54,10 +104,21 @@ readKeyPair path =
     bs <- handleIOExceptT (ApiErrorIO path) $ BS.readFile path
     hoistEither $ parseKeyPairView bs
 
+readPubKeyInfo :: FilePath -> IO (Either ApiError PubKeyInfo)
+readPubKeyInfo path =
+  runExceptT $ do
+    bs <- handleIOExceptT (ApiErrorIO path) $ BS.readFile path
+    hoistEither $ parsePubKeyInfoView bs
+
 writeKeyPair :: FilePath -> KeyPair -> IO (Either ApiError ())
 writeKeyPair path kp =
   runExceptT .
     handleIOExceptT (ApiErrorIO path) $ BS.writeFile path (renderKeyPairView kp)
+
+writePubKeyInfo :: FilePath -> PubKeyInfo -> IO (Either ApiError ())
+writePubKeyInfo path kp =
+  runExceptT .
+    handleIOExceptT (ApiErrorIO path) $ BS.writeFile path (renderPubKeyInfoView kp)
 
 -- -------------------------------------------------------------------------------------------------
 

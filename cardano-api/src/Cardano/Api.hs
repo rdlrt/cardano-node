@@ -8,13 +8,14 @@ module Cardano.Api
 
   , Address (..)
   , KeyPair (..)
+  , Network (..)
   , PubKeyInfo (..)
   , Transaction (..)
   , TxSigned (..)
   , TxUnsigned (..)
 
   , buildTransaction
-  , genAddress
+  , byronPubKeyAddress
   , genByronKeyPair
   , mkPubKeyInfo
   , getTransactionId
@@ -68,11 +69,20 @@ mkPubKeyInfo kp nw =
 -- but since PubKeyInfo already has the PublicKey and Network, it can be simplified.
 -- This is true for Byron, but for Shelley there’s also an optional StakeAddressRef as input to
 -- Address generation
-genAddress :: PubKeyInfo -> Address
-genAddress pki =
+byronPubKeyAddress :: PubKeyInfo -> Address
+byronPubKeyAddress pki =
   case pki of
-    PubKeyInfoByron _nw _bpk -> panic "Cardano.Api.genAddress: PubKeyInfoByron"
-    PubKeyInfoShelley -> panic "Cardano.Api.genAddress: PubKeyInfoShelley"
+    PubKeyInfoByron nw bpk -> AddressByron $ Byron.makeVerKeyAddress (byronProtocolMagic nw) bpk
+    PubKeyInfoShelley -> panic "Cardano.Api.byronPubKeyAddress: PubKeyInfoShelley"
+
+byronProtocolMagic :: Network -> Byron.NetworkMagic
+byronProtocolMagic nw =
+  case nw of
+    Mainnet -> Byron.NetworkMainOrStage
+    Testnet pid -> Byron.NetworkTestnet $ unProtocolMagicId pid
+
+-- makeVerKeyAddress :: NetworkMagic -> VerificationKey -> Address
+-- Byron.makeVerKeyAddress nw bvk
 
 -- Create new Transaction
 -- ledger creates transaction and serialises it as CBOR - txBuilder
